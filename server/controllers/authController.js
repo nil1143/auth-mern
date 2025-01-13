@@ -131,10 +131,48 @@ export const sendVerifyOtp = async (req, res) => {
       subject: "Account verification OTP",
       text: `Your OTP is ${otp}. Verify your account using this OTP.`,
     };
-    await transporter.sendMail(mailOption)
+    await transporter.sendMail(mailOption);
 
-    res.json({success: true, message: 'Verification OTP sent. Check your email.'})
+    res.json({
+      success: true,
+      message: "Verification OTP sent. Check your email.",
+    });
+  } catch (error) {
+    res.json({ success: false, message: error.message });
+  }
+};
 
+// Verify email
+
+export const verifyEmail = async (req, res) => {
+  const { userId, otp } = req.body;
+
+  if (!userId || !otp) {
+    res.json({ success: false, message: "Missing details" });
+  }
+
+  try {
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      res.json({ success: false, message: "User not found" });
+    }
+
+    if (user.verifyOtp === "" || user.verifyOtp !== otp) {
+      return res.json({ success: false, message: "Invalid OTP" });
+    }
+
+    if (user.verifyOtpExpireAt < Date.now()) {
+      res.json({ success: false, message: "OTP expired" });
+    }
+
+    user.isAccountVerified == true;
+    user.verifyOtp = "";
+    user.verifyOtpExpireAt = 0;
+
+    await user.save();
+
+    return res.json({success: true, message: "Email verified successfully!"})
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
