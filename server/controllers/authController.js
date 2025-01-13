@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import userModel from "../models/userModel.js";
 import transporter from "./nodemailer.js";
 
+// Register
 export const register = async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -39,11 +40,11 @@ export const register = async (req, res) => {
     const mailOptions = {
       from: process.env.SENDER_EMAIL,
       to: email,
-      subject: 'Welcome to nil1143',
-      text: `Welcome to nil1143 website. Your account has been created with email address: ${email}`
-    }
+      subject: "Welcome to nil1143",
+      text: `Welcome to nil1143 website. Your account has been created with email address: ${email}`,
+    };
 
-    await transporter.sendMail(mailOptions)
+    await transporter.sendMail(mailOptions);
 
     return res.json({ success: true });
   } catch (error) {
@@ -51,6 +52,7 @@ export const register = async (req, res) => {
   }
 };
 
+// Login
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -89,7 +91,7 @@ export const login = async (req, res) => {
     return res.json({ success: false, message: error.message });
   }
 };
-
+// Logout
 export const logout = async (req, res) => {
   try {
     res.clearCookie("token", {
@@ -97,9 +99,43 @@ export const logout = async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "procution" ? "none" : "strict",
     });
-    
-    return res.json({success: true, message: "Logged Out"})
+
+    return res.json({ success: true, message: "Logged Out" });
   } catch (error) {
     return res.json({ success: false, message: error.message });
+  }
+};
+
+// Send verification OTP to the User's email
+export const sendVerifyOtp = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    const user = await userModel.findById(userId);
+
+    if (user.isAccountVerified) {
+      return res.json({ success: false, message: "Account already verified" });
+    }
+    // generate 6-digit OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+    // store OTP
+    user.verifyOtp = otp;
+    user.verifyOtpExpireAt = Date.now() + 24 * 60 * 60 * 1000;
+
+    await user.save();
+
+    const mailOption = {
+      from: process.env.SENDER_EMAIL,
+      to: user.email,
+      subject: "Account verification OTP",
+      text: `Your OTP is ${otp}. Verify your account using this OTP.`,
+    };
+    await transporter.sendMail(mailOption)
+
+    res.json({success: true, message: 'Verification OTP sent. Check your email.'})
+
+  } catch (error) {
+    res.json({ success: false, message: error.message });
   }
 };
